@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // The Flask backend uses the Firebase Admin SDK and owns all application data.
+    // Client-side direct Firestore access is intentionally disabled.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
