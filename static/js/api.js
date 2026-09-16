@@ -4,7 +4,27 @@ const AV = {
     const row = document.cookie.split('; ').find(v => v.startsWith('csrftoken='));
     return row ? decodeURIComponent(row.split('=').slice(1).join('=')) : '';
   },
-  async request(url, options = {}) {
+  async firebaseSession() {
+    try {
+      const mod = await import('/static/js/firebase.js');
+      const firebaseUser = mod.auth.currentUser;
+      if (!firebaseUser) return false;
+      const idToken = await firebaseUser.getIdToken();
+      const res = await fetch('/api/auth/firebase-login/', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json', Accept: 'application/json'},
+        body: JSON.stringify({id_token: idToken})
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      this.user = data.user || null;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  },
+  async request(url, options = {}, allowAuthRetry = true) {
     const opts = { credentials: 'same-origin', ...options };
     opts.headers = { Accept: 'application/json', ...(opts.body ? {'Content-Type': 'application/json'} : {}), ...(opts.headers || {}) };
     if (['POST','PUT','PATCH','DELETE'].includes((opts.method || 'GET').toUpperCase())) {
@@ -14,6 +34,10 @@ const AV = {
     let data = {};
     try { data = await res.json(); } catch (_) {}
     if (!res.ok) {
+      if (res.status === 401 && allowAuthRetry) {
+        const synced = await this.firebaseSession();
+        if (synced) return this.request(url, options, false);
+      }
       if (res.status === 401) AV.user = null;
       const detail = data.detail || Object.values(data).flat().join(' ') || `Request failed (${res.status})`;
       throw Object.assign(new Error(detail), {status: res.status, data});
@@ -23,9 +47,13 @@ const AV = {
   get(url) { return this.request(url); },
   post(url, body = {}) { return this.request(url, {method: 'POST', body: JSON.stringify(body)}); },
   async session() {
-    const data = await this.get('/api/auth/me/');
-    this.user = data.user;
-    return data;
+    try {
+      const data = await this.get('/api/auth/me/');
+      this.user = data.user;
+      if (data.authenticated && data.user) return data;
+    } catch (_) {}
+    await this.firebaseSession();
+    return {authenticated: !!this.user, user: this.user};
   },
   money(value) {
     return new Intl.NumberFormat('en-IN', {style: 'currency', currency: 'INR', maximumFractionDigits: 0}).format(Number(value || 0));
@@ -81,8 +109,12 @@ async function bootNav(options = {}) {
 
   document.getElementById('menuToggle')?.addEventListener('click', () => nav.classList.toggle('open'));
   document.getElementById('logoutBtn')?.addEventListener('click', async () => {
-    try { await AV.post('/api/auth/logout/'); AV.user = null; location.href = '/static/index.html'; }
-    catch (err) { notify(err.message, 'error'); }
+    try {
+      await AV.post('/api/auth/logout/');
+      try { const mod = await import('/static/js/firebase.js'); await mod.signOut(mod.auth); } catch (_) {}
+      AV.user = null;
+      location.href = '/static/index.html';
+    } catch (err) { notify(err.message, 'error'); }
   });
 }
 
