@@ -43,6 +43,15 @@ def current_user():
     return user
 
 
+def find_user_by_email(email):
+    if not email:
+        return None
+    email = email.strip().lower()
+    for snap in db.collection(USERS).where("email", "==", email).limit(10).stream():
+        return snap
+    return None
+
+
 def user_payload(user):
     return {
         "id": user.get("uid"),
@@ -178,13 +187,18 @@ def firebase_login():
     except Exception:
         return jsonify({"detail": "Invalid or expired Firebase session."}), 401
     uid = decoded["uid"]
-    email = decoded.get("email")
+    email = (decoded.get("email") or "").strip().lower()
     display_name = decoded.get("name") or (email.split("@")[0] if email else uid[:8])
     ref = db.collection(USERS).document(uid)
     snap = ref.get()
     if not snap.exists:
-        username = (email.split("@")[0] if email else uid[:12]).lower()
-        ref.set({"username": username, "full_name": display_name, "email": email, "role": "student", "is_active": True, "created_at": now_iso(), "updated_at": now_iso()})
+        existing = find_user_by_email(email)
+        if existing:
+            ref = existing.reference
+            uid = existing.id
+        else:
+            username = (email.split("@")[0] if email else uid[:12]).lower()
+            ref.set({"username": username, "full_name": display_name, "email": email, "role": "student", "is_active": True, "created_at": now_iso(), "updated_at": now_iso()})
     else:
         ref.set({"email": email, "updated_at": now_iso()}, merge=True)
     session.clear(); session["firebase_uid"] = uid
@@ -269,9 +283,23 @@ def create_booking():
 @app.get("/api/my-bookings")
 @login_required
 def mine():
-    uid = current_user()["uid"]; rows = []
+    user = current_user(); uid = user["uid"]; user_email = (user.get("email") or "").strip().lower(); user_name = (user.get("username") or "").strip().lower(); rows = []
     for snap in db.collection(BOOKINGS).stream():
-        if (snap.to_dict() or {}).get("borrower_id") == uid: rows.append(booking_payload(snap))
+        data = snap.to_dict() or {}
+        borrower_id = data.get("borrower_id")
+        if borrower_id == uid:
+            rows.append(booking_payload(snap))
+            continue
+        borrower = None
+        if borrower_id:
+            borrower = db.collection(USERS).document(borrower_id).get()
+        borrower_data = borrower.to_dict() if borrower and borrower.exists else {}
+        borrower_email = (borrower_data.get("email") or "").strip().lower()
+        borrower_name = (borrower_data.get("username") or "").strip().lower()
+        if borrower_email and borrower_email == user_email:
+            rows.append(booking_payload(snap))
+        elif borrower_name and borrower_name == user_name:
+            rows.append(booking_payload(snap))
     rows.sort(key=lambda x: (x["start_date"], x["id"]), reverse=True)
     return jsonify(rows)
 
