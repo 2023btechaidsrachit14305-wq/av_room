@@ -1,1 +1,40 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>AV Room — Staff Dashboard</title><link rel="stylesheet" href="/static/css/styles.css"></head><body><main class="container"><nav><a href="/static/index.html">Availability</a><a href="/static/book.html">Book</a><a href="/static/dashboard.html">Staff Dashboard</a><a href="/admin/">Admin</a></nav><section class="hero"><p class="eyebrow">Staff</p><h1>Due soon & overdue</h1><p>Checkout, transfer, and return active loans from one screen.</p></section><section class="panel"><div id="message" class="message hidden"></div><div id="table-wrap"><p>Loading…</p></div></section></main><script src="/static/js/api.js"></script><script src="/static/js/dashboard.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="AV Room staff management dashboard">
+  <title>Staff Dashboard — AV Room</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+  <nav class="navbar" id="navbar"></nav>
+  <main class="container">
+    <div class="section-head">
+      <div><p class="eyebrow">Staff operations</p><h1 class="page-title">Keep every loan moving.</h1><p class="page-sub">Monitor due dates, check equipment out, process returns and transfer active loans.</p></div>
+      <button class="button button-small" id="addAdminBtn">+ Add admin</button>
+    </div>
+    <div id="message" class="alert"></div>
+    <div id="stats" class="stats"></div>
+    <section class="panel">
+      <div class="section-head"><div><h2>Attention queue</h2><p class="tiny">Reservations due today, within two days, or already overdue.</p></div></div>
+      <div id="table-wrap"><div class="empty">Loading dashboard…</div></div>
+    </section>
+  </main>
+  <div class="modal" id="adminModal" aria-hidden="true">
+    <section class="modal-card">
+      <div class="modal-head"><div><p class="eyebrow">Admin access</p><h2>Create staff account</h2><p class="tiny">Admins can manage checkout, returns, transfers and other staff access.</p></div><button class="close" id="closeAdmin" aria-label="Close">×</button></div>
+      <form id="adminForm" class="form-stack">
+        <label>Full name<input name="name" required autocomplete="name"></label>
+        <label>Username<input name="username" required autocomplete="username"></label>
+        <label>Email<input name="email" type="email" autocomplete="email"></label>
+        <label>Password<input name="password" type="password" minlength="8" required autocomplete="new-password"></label>
+        <div class="modal-actions"><button class="button button-secondary" type="button" id="closeAdmin2">Cancel</button><button class="button" type="submit">Create admin</button></div>
+      </form>
+    </section>
+  </div>
+  <div class="footer">AV Room · Staff workspace</div>
+  <script src="/static/js/api.js"></script>
+  <script>document.getElementById('closeAdmin2')?.addEventListener('click',()=>document.getElementById('adminModal')?.classList.remove('show'));</script>
+  <script src="/static/js/dashboard.js"></script>
+</body>
+</html>
