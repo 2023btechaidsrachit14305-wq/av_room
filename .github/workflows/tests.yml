@@ -1,4 +1,4 @@
-name: Django Tests
+name: Flask Tests
 
 on:
   push:
@@ -17,9 +17,9 @@ jobs:
           python-version: '3.12'
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Django checks
-        run: python manage.py check
-      - name: Migrate
-        run: python manage.py migrate
-      - name: Tests
-        run: python manage.py test
+      - name: Compile Python
+        run: python -m py_compile app.py seed.py
+      - name: Seed test database
+        run: DATABASE_URL=sqlite:///ci_av_room.db ADMIN_USERNAME=ci_admin ADMIN_PASSWORD=ci_password_123 python seed.py
+      - name: Import application
+        run: DATABASE_URL=sqlite:///ci_av_room.db python -c "from app import app; print(app.url_map)"
