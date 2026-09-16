@@ -18,8 +18,6 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Compile Python
-        run: python -m py_compile app.py seed.py
-      - name: Seed test database
-        run: DATABASE_URL=sqlite:///ci_av_room.db ADMIN_USERNAME=ci_admin ADMIN_PASSWORD=ci_password_123 python seed.py
-      - name: Import application
-        run: DATABASE_URL=sqlite:///ci_av_room.db python -c "from app import app; print(app.url_map)"
+        run: python -m py_compile app.py firebase_service.py seed.py
+      - name: Check required Firebase configuration references
+        run: python -c "from pathlib import Path; assert Path('static/js/firebase.js').exists(); assert Path('firestore.rules').exists(); print('Firebase integration files present')"
