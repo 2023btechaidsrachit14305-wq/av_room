@@ -15,5 +15,7 @@ jobs:
           python-version: '3.12'
       - name: Install dependencies
         run: pip install -r requirements.txt
+      - name: Apply migrations
+        run: python manage.py migrate
       - name: Run reminders
         run: python manage.py send_due_reminders
