@@ -68,11 +68,7 @@ class Booking(models.Model):
     due_date = models.DateField()
     returned_date = models.DateField(null=True, blank=True)
     deposit_charged = models.DecimalField(max_digits=10, decimal_places=2)
-    late_fee_charged = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=0,
-    )
+    late_fee_charged = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
@@ -84,3 +80,27 @@ class Booking(models.Model):
 
     def __str__(self):
         return f"{self.equipment_unit.asset_tag} - {self.borrower.username} ({self.start_date})"
+
+    @property
+    def refund_amount(self):
+        return self.deposit_charged - self.late_fee_charged
+
+
+class TransferLog(models.Model):
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name="transfer_logs")
+    from_user = models.ForeignKey(User, on_delete=models.PROTECT, related_name="outgoing_transfers")
+    to_user = models.ForeignKey(User, on_delete=models.PROTECT, related_name="incoming_transfers")
+    transferred_at = models.DateTimeField(auto_now_add=True)
+    transferred_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="performed_transfers",
+    )
+
+    class Meta:
+        ordering = ["-transferred_at"]
+
+    def __str__(self):
+        return f"Booking #{self.booking_id}: {self.from_user} → {self.to_user}"
