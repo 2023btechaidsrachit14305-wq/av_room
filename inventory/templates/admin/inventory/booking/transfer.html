@@ -1,0 +1,13 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h1>Transfer booking{{ bookings|length|pluralize }}</h1>
+<p>The selected booking keeps the same equipment unit, dates, status, and deposit.</p>
+<form method="post">{% csrf_token %}
+  <input type="hidden" name="ids" value="{{ ids }}">
+  <label for="new_borrower">New borrower</label>
+  <select name="new_borrower" id="new_borrower" required>
+    {% for borrower in borrowers %}<option value="{{ borrower.pk }}">{{ borrower.username }}{% if borrower.get_full_name %} — {{ borrower.get_full_name }}{% endif %}</option>{% endfor %}
+  </select>
+  <div style="margin-top:1rem;"><button type="submit" class="default">Transfer</button> <a href="../">Cancel</a></div>
+</form>
+{% endblock %}
