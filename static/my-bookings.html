@@ -1,1 +1,53 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>My bookings — AV Room</title><link rel="stylesheet" href="/static/css/styles.css"></head><body><nav class="navbar" id="navbar"></nav><main class="container"><div class="section-head"><div><p class="eyebrow">Borrower portal</p><h1 class="page-title">My bookings</h1><p class="page-sub">Your reservations, current loans and return history — all in one view.</p></div><a class="button button-small" href="/static/index.html">+ New reservation</a></div><div id="pageAlert" class="alert"></div><div id="bookingsList"></div></main><script src="/static/js/api.js"></script><script src="/static/js/my-bookings.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>My bookings — AV Room</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+  <nav class="navbar" id="navbar"></nav>
+  <main class="container bookings-page">
+    <div class="section-head bookings-heading">
+      <div>
+        <p class="eyebrow">Borrower portal</p>
+        <h1 class="page-title">My bookings</h1>
+        <p class="page-sub">Track reservations, active loans, return dates and refunds in one place.</p>
+      </div>
+      <div class="actions">
+        <button class="button button-secondary button-small" id="refreshBookings" type="button">↻ Refresh</button>
+        <a class="button button-small" href="/static/index.html">+ New reservation</a>
+      </div>
+    </div>
+    <div id="pageAlert" class="alert"></div>
+    <section class="stats booking-stats" aria-label="Booking summary">
+      <div class="stat"><div class="num" id="statTotal">—</div><div class="label">Total bookings</div></div>
+      <div class="stat"><div class="num" id="statActive">—</div><div class="label">Active</div></div>
+      <div class="stat"><div class="num" id="statDueSoon">—</div><div class="label">Due soon</div></div>
+      <div class="stat"><div class="num" id="statReturned">—</div><div class="label">Returned</div></div>
+    </section>
+    <section class="panel booking-list-panel">
+      <div class="list-toolbar">
+        <div>
+          <h2>Your equipment</h2>
+          <p class="tiny" id="lastUpdated">Loading your reservations…</p>
+        </div>
+        <label class="filter-label">Show
+          <select id="bookingFilter" aria-label="Filter bookings">
+            <option value="all">All bookings</option>
+            <option value="active">Active</option>
+            <option value="reserved">Reserved</option>
+            <option value="checked_out">Checked out</option>
+            <option value="returned">Returned</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </label>
+      </div>
+      <div id="bookingsList" aria-live="polite"></div>
+    </section>
+  </main>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/my-bookings.js"></script>
+</body>
+</html>
