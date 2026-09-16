@@ -1,0 +1,11 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>AV Room Staff Dashboard</title></head>
+<body>
+<h1>Staff dashboard</h1>
+<p>Checked-out bookings due within 2 days or overdue.</p>
+{% if bookings %}
+<table border="1" cellpadding="6"><tr><th>Borrower</th><th>Asset</th><th>Due date</th><th>Days overdue</th></tr>
+{% for booking in bookings %}<tr><td>{{ booking.borrower.username }}</td><td>{{ booking.equipment_unit.asset_tag }}</td><td>{{ booking.due_date }}</td><td>{% if booking.days_overdue %}{{ booking.days_overdue }}{% else %}0{% endif %}</td></tr>{% endfor %}
+</table>
+{% else %}<p>No urgent checked-out bookings.</p>{% endif %}
+</body></html>
