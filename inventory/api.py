@@ -1,6 +1,7 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.db import transaction
 from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -10,7 +11,6 @@ from .models import Booking, EquipmentType, EquipmentUnit
 from .serializers import BookingSerializer, EquipmentTypeSerializer, EquipmentUnitSerializer
 from .services import (
     ACTIVE_BOOKING_STATUSES,
-    available_units,
     checkout_booking,
     create_booking,
     return_booking,
@@ -71,7 +71,10 @@ class StaffBookingActionAPIView(APIView):
     permission_classes = [permissions.IsAdminUser]
 
     def post(self, request, pk, action):
-        booking = Booking.objects.select_related("equipment_unit__equipment_type", "borrower").get(pk=pk)
+        try:
+            booking = Booking.objects.select_related("equipment_unit__equipment_type", "borrower").get(pk=pk)
+        except Booking.DoesNotExist:
+            return Response({"detail": "Booking not found."}, status=404)
         try:
             if action == "checkout":
                 checkout_booking(booking)
@@ -92,15 +95,18 @@ class TransferAPIView(APIView):
     permission_classes = [permissions.IsAdminUser]
 
     def post(self, request, pk):
-        booking = Booking.objects.select_related("borrower", "equipment_unit__equipment_type").get(pk=pk)
         try:
-            new_borrower = get_user_model().objects.get(pk=request.data.get("new_borrower_id"))
+            booking = Booking.objects.select_related("borrower", "equipment_unit__equipment_type").get(pk=pk)
+        except Booking.DoesNotExist:
+            return Response({"detail": "Booking not found."}, status=404)
+        borrower_id = request.data.get("new_borrower_id")
+        try:
+            new_borrower = get_user_model().objects.get(pk=borrower_id)
+        except (get_user_model().DoesNotExist, TypeError, ValueError):
+            return Response({"detail": "A valid new_borrower_id is required."}, status=400)
+        try:
             due_date = booking.due_date
             transfer_booking(booking, new_borrower, request.user)
-        except get_user_model().DoesNotExist:
-            return Response({"detail": "New borrower not found."}, status=400)
-        except (TypeError, ValueError):
-            return Response({"detail": "new_borrower_id is required."}, status=400)
         except ValidationError as exc:
             return Response({"detail": exc.messages[0]}, status=400)
         return Response({"booking": BookingSerializer(booking).data, "due_date_unchanged": due_date.isoformat()})
@@ -111,10 +117,12 @@ class DashboardAPIView(APIView):
 
     def get(self, request):
         today = timezone.localdate()
-        bookings = Booking.objects.filter(
-            status=Booking.Status.CHECKED_OUT,
-            due_date__lte=today + timezone.timedelta(days=2),
-        ).select_related("borrower", "equipment_unit__equipment_type").order_by("due_date", "id")
+        bookings = list(
+            Booking.objects.filter(
+                status=Booking.Status.CHECKED_OUT,
+                due_date__lte=today + timedelta(days=2),
+            ).select_related("borrower", "equipment_unit__equipment_type").order_by("due_date", "id")
+        )
         data = BookingSerializer(bookings, many=True).data
         for item, booking in zip(data, bookings):
             item["days_overdue"] = max(0, (today - booking.due_date).days)
