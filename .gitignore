@@ -4,15 +4,14 @@ __pycache__/
 *$py.class
 *.so
 
-# Virtual environments
-.venv/
-venv/
-env/
-
 # Flask / local database
 av_room.db
 instance/
 *.log
+
+# Firebase credentials - NEVER commit service account keys
+firebase-service-account.json
+firebase-*-service-account.json
 
 # Environment variables
 .env
