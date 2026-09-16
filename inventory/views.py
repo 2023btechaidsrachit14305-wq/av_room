@@ -2,14 +2,13 @@ from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.db import transaction
+from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.conf import settings
 
 from .forms import AvailabilityForm, BookingForm
-from .models import Booking, EquipmentType, EquipmentUnit
-from .services import ACTIVE_BOOKING_STATUSES, available_units
+from .models import Booking, EquipmentType
+from .services import ACTIVE_BOOKING_STATUSES, available_units, create_booking
 
 
 def availability(request):
@@ -29,21 +28,19 @@ def availability(request):
 
 
 @login_required
-def create_booking(request):
+def create_booking_view(request):
     form = BookingForm(request.POST or None)
     if form.is_valid():
-        booking = form.save(commit=False)
-        if Booking.objects.filter(borrower=request.user, status__in=ACTIVE_BOOKING_STATUSES).count() >= settings.MAX_CONCURRENT_BOOKINGS:
-            form.add_error(None, f"You already have {settings.MAX_CONCURRENT_BOOKINGS} active bookings. Return or cancel one before booking another item.")
-        elif not available_units(booking.equipment_unit.equipment_type, booking.start_date, booking.due_date).filter(pk=booking.equipment_unit_id).exists():
-            form.add_error("equipment_unit", "This unit is not available for the selected dates.")
+        try:
+            booking = create_booking(
+                request.user,
+                form.cleaned_data["equipment_unit"],
+                form.cleaned_data["start_date"],
+                form.cleaned_data["due_date"],
+            )
+        except ValidationError as exc:
+            form.add_error(None, exc.messages[0])
         else:
-            with transaction.atomic():
-                booking.borrower = request.user
-                booking.deposit_charged = booking.equipment_unit.equipment_type.deposit_amount
-                booking.late_fee_charged = 0
-                booking.status = Booking.Status.RESERVED
-                booking.save()
             messages.success(request, "Booking reserved successfully.")
             return redirect("booking_confirmation", pk=booking.pk)
     return render(request, "inventory/booking_form.html", {"form": form})
