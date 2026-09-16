@@ -1,12 +1,12 @@
 from django import forms
 
-from .models import Booking, EquipmentUnit
+from .models import Booking, EquipmentType
 
 
 class AvailabilityForm(forms.Form):
-    category = forms.ChoiceField(choices=[("", "All categories")] + list(
-        __import__("inventory.models", fromlist=["EquipmentType"]).EquipmentType.Category.choices
-    ))
+    category = forms.ChoiceField(
+        choices=[("", "All categories")] + list(EquipmentType.Category.choices)
+    )
     start_date = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
     end_date = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
 
@@ -35,6 +35,3 @@ class BookingForm(forms.ModelForm):
         if start and due and start >= due:
             raise forms.ValidationError("Due date must be after start date.")
         return cleaned
-
-    def set_available_units(self, queryset):
-        self.fields["equipment_unit"].queryset = queryset

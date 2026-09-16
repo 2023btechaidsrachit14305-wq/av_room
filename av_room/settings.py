@@ -8,6 +8,7 @@ load_dotenv(BASE_DIR / '.env')
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-dev-only-key-change-in-production')
 DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() == 'true'
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
+MAX_CONCURRENT_BOOKINGS = int(os.getenv('MAX_CONCURRENT_BOOKINGS', '3'))
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -69,3 +70,6 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'noreply@av-room.local'
+LOGIN_URL = '/admin/login/'
