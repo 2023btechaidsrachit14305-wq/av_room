@@ -7,7 +7,15 @@ const AV = {
   async firebaseSession() {
     try {
       const mod = await import('/static/js/firebase.js');
-      const firebaseUser = mod.auth.currentUser;
+      let firebaseUser = mod.auth.currentUser;
+      if (!firebaseUser) {
+        firebaseUser = await new Promise(resolve => {
+          let settled = false;
+          const finish = value => { if (!settled) { settled = true; resolve(value); } };
+          const unsubscribe = mod.onAuthStateChanged(mod.auth, user => { unsubscribe(); finish(user); });
+          setTimeout(() => { try { unsubscribe(); } catch (_) {} finish(mod.auth.currentUser); }, 3000);
+        });
+      }
       if (!firebaseUser) return false;
       const idToken = await firebaseUser.getIdToken();
       const res = await fetch('/api/auth/firebase-login/', {
