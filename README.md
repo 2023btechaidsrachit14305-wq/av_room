@@ -1,34 +1,55 @@
-# AV Room — Flask Equipment Lending
+# AV Room — Flask + Firebase Equipment Lending
 
-AV Room is a Flask-based college AV equipment lending system designed for everyday use by students and staff. Students can create accounts, search live equipment availability, reserve a unit, view their bookings and cancel eligible reservations. Staff can operate the loan desk, check equipment out, process returns, transfer active loans and create additional admin accounts.
+AV Room is a Flask-based college AV equipment lending system. Firebase Authentication handles user identity, and Cloud Firestore is the persistent application database. Flask remains responsible for server-side business rules and protected staff operations.
 
 ## Stack
 
 - Flask
-- Flask-SQLAlchemy
-- SQLite by default, with `DATABASE_URL` available for a hosted database
+- Firebase Authentication (Email/Password)
+- Firebase Admin SDK
+- Cloud Firestore
 - Vanilla HTML/CSS/JavaScript frontend
-- Signed Flask session authentication
 - Gunicorn for production serving
 
-## What it supports
+## Features
 
-- Equipment categories: DSLR, Projector, Mic and Tripod
-- Individual assets with unique asset tags
-- Date-range availability with overlap protection
-- Student registration and login
-- Password hashing; plaintext passwords are never stored
+- Public equipment availability search
+- Student account registration and Firebase sign-in
+- Persistent Firestore users, equipment, bookings and transfer logs
+- Individual asset tags for cameras, projectors, microphones and tripods
+- Date-range overlap protection
 - Maximum active booking limit (default 3)
 - Maximum loan length (default 14 days)
-- Deposit recorded from the equipment type
-- Staff checkout and return workflow
-- Automatic late-fee calculation capped at the deposit
-- Refund amount after return
-- Staff-only transfer workflow with an audit log
-- Due-soon / overdue staff dashboard
-- Admin creation from the staff dashboard
+- Deposit and daily late-fee calculation
+- Student booking history and cancellation of eligible reservations
+- Staff checkout, return and loan transfer
+- Late-fee cap and refund calculation
+- Admin-only management actions
+- Existing admins can create additional Firebase admin accounts
 - Responsive mobile-friendly frontend
-- GitHub Actions checks for syntax, seeding and application import
+
+## Firebase setup
+
+1. Open the Firebase Console for project `avroom-7c3cb`.
+2. Enable **Authentication → Sign-in method → Email/Password**.
+3. Create a **Cloud Firestore** database.
+4. Apply `firestore.rules` from this repository. Client-side Firestore reads/writes are intentionally blocked because the Flask backend uses the Admin SDK for database access.
+5. In **Project settings → Service accounts**, create a Firebase Admin SDK service-account key.
+6. Do not commit that JSON key. The repository ignores service-account files.
+
+For local development, either provide the service-account file as `firebase-service-account.json` or set:
+
+```text
+FIREBASE_SERVICE_ACCOUNT_FILE=/full/path/to/firebase-service-account.json
+```
+
+For hosting platforms that support secret environment variables, prefer:
+
+```text
+FIREBASE_SERVICE_ACCOUNT_JSON={...entire service-account JSON...}
+```
+
+Firebase's recommended pattern for a custom backend is to send the client's Firebase ID token to the server and verify it with the Firebase Admin SDK before trusting the user identity.
 
 ## Run locally
 
@@ -40,7 +61,7 @@ python seed.py
 python app.py
 ```
 
-On Windows PowerShell, activate the environment with:
+Windows PowerShell:
 
 ```powershell
 .venv\Scripts\Activate.ps1
@@ -48,79 +69,85 @@ On Windows PowerShell, activate the environment with:
 
 The app listens on `0.0.0.0:5000` by default.
 
-## Main pages
+## Pages
 
-- `/` — public availability landing page
+- `/` — public availability page
 - `/static/index.html` — availability search
-- `/static/login.html` — login / student registration
+- `/static/login.html` — Firebase login / registration
 - `/static/book.html` — reservation flow
-- `/static/my-bookings.html` — student's booking history
+- `/static/my-bookings.html` — student bookings
 - `/static/dashboard.html` — staff dashboard
 
-## Admin accounts
+## Initial admin and demo data
 
-The seed script creates the first admin using environment variables:
+Set a real admin email/password before seeding:
 
 ```bash
-ADMIN_USERNAME=admin ADMIN_PASSWORD='use-a-strong-password' python seed.py
+ADMIN_USERNAME=admin ADMIN_EMAIL=admin@your-college-domain.example ADMIN_PASSWORD='use-a-strong-password' python seed.py
 ```
 
-Defaults are `admin` and `avroom2026` for local/demo use only. Change these values before making the application accessible to real users.
-
-After logging in as an admin, use **+ Add admin** on the staff dashboard to create another administrator with a username and password.
-
-## Demo users
-
-The seed script also creates:
+For local/demo use, the defaults are:
 
 ```text
-demo_student1 / demo12345
-demo_student2 / demo12345
-demo_student3 / demo12345
+Admin email: admin@avroom.local
+Admin username: admin
+Admin password: avroom2026
+
+Demo student emails:
+demo_student1@avroom.local
+demo_student2@avroom.local
+demo_student3@avroom.local
+Password: demo12345
 ```
 
-These accounts are intended for testing the student workflow.
+Firebase Authentication uses the email address for sign-in. The application also stores the chosen username in Firestore so staff can identify borrowers.
+
+## Real-world storage
+
+Application records are stored in Cloud Firestore, not SQLite. Restarting Flask does not delete Firestore data, and different users connected to the deployed application see the same database.
+
+Firestore collections used by the Flask backend:
+
+```text
+users/
+equipment_types/
+equipment_units/
+bookings/
+transfer_logs/
+```
+
+The Flask server verifies Firebase ID tokens and then reads/writes Firestore using the Firebase Admin SDK. This follows Firebase's server-side token verification model.
 
 ## Configuration
 
-Useful environment variables:
-
 ```text
 SECRET_KEY=long-random-secret
-DATABASE_URL=sqlite:///av_room.db
+FIREBASE_SERVICE_ACCOUNT_FILE=/path/to/firebase-service-account.json
+FIREBASE_SERVICE_ACCOUNT_JSON={...}
 PORT=5000
 MAX_CONCURRENT_BOOKINGS=3
 MAX_LOAN_DAYS=14
 SESSION_COOKIE_SECURE=true
 ```
 
-For a production deployment, use a strong `SECRET_KEY`, HTTPS, `SESSION_COOKIE_SECURE=true`, and a persistent production database rather than local SQLite.
+For production, use HTTPS, a strong `SECRET_KEY`, `SESSION_COOKIE_SECURE=true`, and a secret manager/environment variables for Firebase credentials.
 
-## Real-world workflow
-
-1. A student opens the public site and searches for equipment by category and dates.
-2. The student signs in or creates an account.
-3. The reservation screen shows the selected unit, deposit and late-fee policy before confirmation.
-4. The booking appears in **My bookings**.
-5. Staff use the dashboard to check the item out when it is physically issued.
-6. If ownership of an active loan changes, staff can transfer it to another student without changing the equipment unit or due date.
-7. On return, staff mark the loan returned. The app calculates late days, late fee and refund.
-8. Additional staff accounts can be created by an existing admin.
-
-## Security notes
-
-The frontend and backend are served by the same Flask application, so authentication is cookie/session based and there is no separate frontend server to configure. User passwords are hashed with Werkzeug. Admin-only operations are enforced on the server rather than relying on hidden frontend controls.
-
-Do not publish a real production secret or production password in the repository. Prefer environment variables or your hosting provider's secret manager.
-
-## Production serving
+## Production
 
 ```bash
 gunicorn --bind 0.0.0.0:5000 app:app
 ```
 
-A reverse proxy such as Nginx can sit in front of Gunicorn when the application is deployed on a VPS.
+Place Nginx or your hosting provider's HTTPS proxy in front of Gunicorn.
+
+## Health check
+
+```text
+GET /health
+```
+
+The response reports `storage: firebase-firestore` when the Flask service is running.
 
 ## CI
 
-GitHub Actions runs Python compilation, dependency installation, database seeding and application import checks on pushes and pull requests to `main`.
+GitHub Actions installs the Python dependencies and checks that the Flask/Firebase integration files compile and are present. It does not need a production Firebase service-account secret during syntax checks.
