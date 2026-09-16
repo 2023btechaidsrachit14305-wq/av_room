@@ -1,12 +1,12 @@
-name: Daily AV Due Reminders
+name: Flask Health Check
 
 on:
-  schedule:
-    - cron: '30 3 * * *'
   workflow_dispatch:
+  push:
+    branches: [main]
 
 jobs:
-  reminders:
+  health:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,7 +15,7 @@ jobs:
           python-version: '3.12'
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Apply migrations
-        run: python manage.py migrate
-      - name: Run reminders
-        run: python manage.py send_due_reminders
+      - name: Compile application
+        run: python -m py_compile app.py seed.py
+      - name: Seed a clean demo database
+        run: DATABASE_URL=sqlite:///ci_av_room.db ADMIN_USERNAME=ci_admin ADMIN_PASSWORD=ci_password_123 python seed.py
