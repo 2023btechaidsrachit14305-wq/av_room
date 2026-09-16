@@ -9,15 +9,15 @@ __pycache__/
 venv/
 env/
 
-# Django
+# Flask / local database
+av_room.db
+instance/
 *.log
-db.sqlite3
-media/
-staticfiles/
 
 # Environment variables
 .env
 .env.*
+.flaskenv
 
 # IDE
 .vscode/
