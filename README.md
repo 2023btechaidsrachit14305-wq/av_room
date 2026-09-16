@@ -1,105 +1,126 @@
-# AV Room
+# AV Room — Flask Equipment Lending
 
-AV Room is a Django college AV equipment lending system. Students can check availability and reserve equipment; staff can manage checkout, returns, transfers, deposits, late fees, refunds, and due-date reminders.
+AV Room is a Flask-based college AV equipment lending system designed for everyday use by students and staff. Students can create accounts, search live equipment availability, reserve a unit, view their bookings and cancel eligible reservations. Staff can operate the loan desk, check equipment out, process returns, transfer active loans and create additional admin accounts.
 
 ## Stack
 
-- Django
-- Django REST Framework
-- SQLite for development
-- Python 3.12 / GitHub Codespaces
+- Flask
+- Flask-SQLAlchemy
+- SQLite by default, with `DATABASE_URL` available for a hosted database
 - Vanilla HTML/CSS/JavaScript frontend
+- Signed Flask session authentication
+- Gunicorn for production serving
 
-## Features
+## What it supports
 
-- Equipment types: DSLR, Projector, Mic, Tripod
-- Individual equipment units with unique asset tags and lifecycle status
-- Date-range availability checking with overlap detection
-- Student booking with server-side `MAX_CONCURRENT_BOOKINGS` limit (default 3)
-- Automatic deposit charging from the equipment type
-- Staff checkout and return actions in Django admin
-- Late fees capped at the charged deposit and refund calculation
-- Loan transfer between borrowers without changing the equipment unit, date window, status, or availability
-- Transfer audit log with source, destination, timestamp, and staff performer
-- Staff dashboard for due-soon and overdue checked-out items
-- Console-email due reminders and daily GitHub Actions scheduling
-- Repeatable demo-data seeding
-- REST API for availability, booking, checkout, return, transfer, dashboard, and borrower lookup
-- Plain HTML/CSS/JS frontend with loading, error, and empty states
+- Equipment categories: DSLR, Projector, Mic and Tripod
+- Individual assets with unique asset tags
+- Date-range availability with overlap protection
+- Student registration and login
+- Password hashing; plaintext passwords are never stored
+- Maximum active booking limit (default 3)
+- Maximum loan length (default 14 days)
+- Deposit recorded from the equipment type
+- Staff checkout and return workflow
+- Automatic late-fee calculation capped at the deposit
+- Refund amount after return
+- Staff-only transfer workflow with an audit log
+- Due-soon / overdue staff dashboard
+- Admin creation from the staff dashboard
+- Responsive mobile-friendly frontend
+- GitHub Actions checks for syntax, seeding and application import
 
-## Run
+## Run locally
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python manage.py migrate
-python manage.py createsuperuser
-python manage.py runserver 0.0.0.0:8000
+python seed.py
+python app.py
 ```
 
-In Codespaces, open forwarded port `8000`.
+On Windows PowerShell, activate the environment with:
 
-## Frontend URLs
+```powershell
+.venv\Scripts\Activate.ps1
+```
 
-- `http://localhost:8000/` — redirects to the availability page
-- `http://localhost:8000/static/index.html` — availability search
-- `http://localhost:8000/static/book.html` — student booking
-- `http://localhost:8000/static/dashboard.html` — staff dashboard
-- `http://localhost:8000/admin/` — Django admin
-- `http://localhost:8000/accounts/login/` — Django session login
+The app listens on `0.0.0.0:5000` by default.
 
-## API URLs
+## Main pages
 
-- `GET /api/availability/?category=&start_date=&end_date=`
-- `POST /api/bookings/`
-- `POST /api/bookings/<id>/checkout/`
-- `POST /api/bookings/<id>/return/`
-- `POST /api/bookings/<id>/transfer/` with `{ "new_borrower_id": 123 }`
-- `GET /api/dashboard/`
-- `GET /api/borrowers/` (staff only, used by the transfer selector)
+- `/` — public availability landing page
+- `/static/index.html` — availability search
+- `/static/login.html` — login / student registration
+- `/static/book.html` — reservation flow
+- `/static/my-bookings.html` — student's booking history
+- `/static/dashboard.html` — staff dashboard
 
-DRF uses Django session authentication and the same-origin CSRF token for POST requests. CORS is not configured because the frontend is served by Django from the same origin.
+## Admin accounts
 
-## Demo data
+The seed script creates the first admin using environment variables:
 
 ```bash
-python manage.py seed_demo_data
+ADMIN_USERNAME=admin ADMIN_PASSWORD='use-a-strong-password' python seed.py
 ```
 
-This creates four equipment types, three units per type, three demo students, plus one on-time and one overdue checked-out booking. Demo password: `demo12345`.
+Defaults are `admin` and `avroom2026` for local/demo use only. Change these values before making the application accessible to real users.
 
-## Booking rules
+After logging in as an admin, use **+ Add admin** on the staff dashboard to create another administrator with a username and password.
 
-An active booking is `reserved` or `checked_out`. A unit is unavailable when an active booking overlaps the requested range using `start < other.due_date and end > other.start_date`.
+## Demo users
 
-A borrower may have at most `MAX_CONCURRENT_BOOKINGS` active bookings. The default is 3 and can be overridden with the environment variable `MAX_CONCURRENT_BOOKINGS`.
+The seed script also creates:
 
-Successful bookings are saved as `reserved`, with `deposit_charged` copied from the equipment type.
+```text
+demo_student1 / demo12345
+demo_student2 / demo12345
+demo_student3 / demo12345
+```
 
-## Checkout and return
+These accounts are intended for testing the student workflow.
 
-Staff use the Booking admin actions **Check out selected bookings** and **Mark selected bookings returned**. Checkout changes the booking and unit to `checked_out`. Return records today's date, calculates late days, applies the equipment type's daily late fee, caps it at the deposit, returns the unit to `available`, and shows `refund_amount = deposit_charged - late_fee_charged`.
+## Configuration
 
-## Transfers
+Useful environment variables:
 
-A transfer is a mutation of an existing checked-out booking. It changes only the borrower and creates a `TransferLog`. The equipment unit stays `checked_out`, so its availability window does not change and no availability check is performed. The new borrower must still be below `MAX_CONCURRENT_BOOKINGS`.
+```text
+SECRET_KEY=long-random-secret
+DATABASE_URL=sqlite:///av_room.db
+PORT=5000
+MAX_CONCURRENT_BOOKINGS=3
+MAX_LOAN_DAYS=14
+SESSION_COOKIE_SECURE=true
+```
 
-Staff can transfer from Django admin using the **Transfer to another borrower** action, or through `POST /api/bookings/<id>/transfer/`.
+For a production deployment, use a strong `SECRET_KEY`, HTTPS, `SESSION_COOKIE_SECURE=true`, and a persistent production database rather than local SQLite.
 
-## Reminders
+## Real-world workflow
+
+1. A student opens the public site and searches for equipment by category and dates.
+2. The student signs in or creates an account.
+3. The reservation screen shows the selected unit, deposit and late-fee policy before confirmation.
+4. The booking appears in **My bookings**.
+5. Staff use the dashboard to check the item out when it is physically issued.
+6. If ownership of an active loan changes, staff can transfer it to another student without changing the equipment unit or due date.
+7. On return, staff mark the loan returned. The app calculates late days, late fee and refund.
+8. Additional staff accounts can be created by an existing admin.
+
+## Security notes
+
+The frontend and backend are served by the same Flask application, so authentication is cookie/session based and there is no separate frontend server to configure. User passwords are hashed with Werkzeug. Admin-only operations are enforced on the server rather than relying on hidden frontend controls.
+
+Do not publish a real production secret or production password in the repository. Prefer environment variables or your hosting provider's secret manager.
+
+## Production serving
 
 ```bash
-python manage.py send_due_reminders
+gunicorn --bind 0.0.0.0:5000 app:app
 ```
 
-The command finds checked-out bookings due tomorrow or overdue and sends via Django's console email backend, while also printing the reminder. `.github/workflows/reminders.yml` schedules the command daily and can be adapted when persistent production email/data storage is available.
+A reverse proxy such as Nginx can sit in front of Gunicorn when the application is deployed on a VPS.
 
-## Tests
+## CI
 
-```bash
-python manage.py check
-python manage.py test
-```
-
-GitHub Actions runs the same checks on pushes and pull requests to `main`.
+GitHub Actions runs Python compilation, dependency installation, database seeding and application import checks on pushes and pull requests to `main`.
